@@ -28,7 +28,7 @@
 
   <main style="max-width:1080px;margin:0 auto;padding:34px 22px 64px">
     <div style="font-family:'Archivo',sans-serif;font-weight:800;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:10px">GPS-Streckenanalyse · 40 km</div>
-    <h1 style="font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(40px,7vw,72px);line-height:.96;letter-spacing:-.02em;text-transform:uppercase;margin:0 0 14px">Vierdaagse<br>Nijmegen 2025</h1>
+    <h1 style="font-family:'Archivo',sans-serif;font-weight:900;font-size:clamp(40px,7vw,72px);line-height:.96;letter-spacing:-.02em;text-transform:uppercase;margin:0 0 14px">4daagse Nijmegen 2025</h1>
     <p style="font-size:17px;font-weight:600;margin:0 0 4px;color:var(--ink)">Aglaja &amp; Jens — Auswertung &amp; Empfehlungen</p>
     <p style="font-size:14.5px;color:var(--muted);margin:0 0 30px">GPS-Tracks 40-km-Strecke · 15.–18. Juli 2025</p>
 
@@ -72,7 +72,7 @@
 
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px 20px 14px;box-shadow:var(--shadow);margin-top:22px">
       <h2 style="font-family:'Archivo',sans-serif;font-weight:800;font-size:16px;letter-spacing:-.01em;margin:0 0 4px">Herzfrequenz</h2>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Herzfrequenz über Distanz · Aglaja durchgezogen, Jens gestrichelt · je Tag eine Farbe · fahre über eine Linie für die Kartenposition</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Herzfrequenz über Distanz · Aglaja durchgezogen, Jens gestrichelt · je Tag eine Farbe · jedes Tages-Chart je Läufer einzeln wählbar · fahre über eine Linie für die Kartenposition</p>
       <div id="runnerTabs" style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:14px"></div>
       <div style="position:relative;height:280px"><canvas id="hrCanvas"></canvas></div>
       <div id="hrEmpty" style="display:none;color:var(--muted);font-size:14px;padding:26px;text-align:center">Keinen Tag ausgewählt.</div>
@@ -114,7 +114,7 @@ window.VIERDAAGSE = {DATA, HEAT, COLORS, RAINMM, order, ANNOT};
   const FAM="'Hanken Grotesk',sans-serif";
   const RUNNERS=["Aglaja","Jens"];
 
-  let V=null, state={theme:'dark',days:{},anns:{collapse:true},runners:{Aglaja:true,Jens:true}};
+  let V=null, state={theme:'dark',days:{},anns:{},hrSel:{}};
   let map=null, layers=[], posM=null, elevChart=null, hrChart=null;
 
   try{ const t=localStorage.getItem('vierdaagse-theme'); if(t==='dark'||t==='light') state.theme=t; }catch(e){}
@@ -159,20 +159,31 @@ window.VIERDAAGSE = {DATA, HEAT, COLORS, RAINMM, order, ANNOT};
       rec.appendChild(makeTab(a.label, annTabStyle(on,a.color), annDot(on,a.color,a.kind==='points'),
         ()=>{ state.anns[a.id]=!state.anns[a.id]; render(false); })); });
   }
-  function renderRunnerTabs(){
-    const c=document.getElementById('runnerTabs'); c.innerHTML=''; const p=P();
-    RUNNERS.forEach(r=>{ const on=!!state.runners[r]; const dash=(r==='Jens');
-      const el=document.createElement('div'); el.style.cssText=annTabStyle(on,p.ink);
+  function hrChipStyle(on,color){const p=P();
+    return 'display:flex;align-items:center;gap:8px;padding:7px 13px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:'+(on?'700':'500')+';user-select:none;transition:all .15s;border:'+(on?('2px solid '+color):('1.5px solid '+p.border))+';background:'+(on?(color+'14'):'transparent')+';color:'+(on?p.ink:p.muted)+';opacity:'+(on?'1':'.72');}
+  function renderHrTabs(){
+    const c=document.getElementById('runnerTabs'); c.innerHTML='';
+    c.style.cssText='display:flex;flex-direction:column;gap:9px;align-items:flex-start;margin-bottom:14px';
+    const p=P();
+    const chip=(d,r)=>{ const dayShort=V.DATA[d].label.split(' · ')[0]; const color=V.COLORS[d];
+      const key=d+'|'+r; const on=!!state.hrSel[key]; const dash=(r==='Jens');
+      const el=document.createElement('div'); el.style.cssText=hrChipStyle(on,color);
       const sw=document.createElement('span');
-      sw.style.cssText='width:20px;height:0;flex:none;border-top:'+(dash?'2px dashed ':'2.4px solid ')+(on?p.ink:p.muted);
+      sw.style.cssText='width:18px;height:0;flex:none;border-top:'+(dash?'2px dashed ':'2.4px solid ')+(on?color:p.muted);
       el.appendChild(sw);
-      const tx=document.createElement('span'); tx.textContent=r; el.appendChild(tx);
-      el.addEventListener('click',()=>{ state.runners[r]=!state.runners[r]; render(false); });
-      c.appendChild(el); });
-    const all=document.createElement('button'); all.textContent='Alle';
-    all.style.cssText='font-size:13px;font-weight:600;color:var(--muted);background:none;border:1.5px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer';
-    all.addEventListener('click',()=>{ RUNNERS.forEach(r=>state.runners[r]=true); render(false); });
-    c.appendChild(all);
+      const tx=document.createElement('span'); tx.textContent=dayShort+' · '+r; el.appendChild(tx);
+      el.addEventListener('click',()=>{ state.hrSel[key]=!state.hrSel[key]; render(false); });
+      return el; };
+    const mk=(txt,fn)=>{ const b=document.createElement('button'); b.textContent=txt;
+      b.style.cssText='font-size:13px;font-weight:600;color:var(--muted);background:none;border:1.5px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer'; b.addEventListener('click',fn); return b; };
+    const mkRow=()=>{ const row=document.createElement('div'); row.style.cssText='display:flex;flex-wrap:wrap;gap:9px;align-items:center'; return row; };
+    const row1=mkRow();
+    [V.order[0],V.order[1]].forEach(d=>RUNNERS.forEach(r=>row1.appendChild(chip(d,r))));
+    row1.appendChild(mk('Alle',()=>{ V.order.forEach(d=>RUNNERS.forEach(r=>state.hrSel[d+'|'+r]=true)); render(false); }));
+    const row2=mkRow();
+    [V.order[2],V.order[3]].forEach(d=>RUNNERS.forEach(r=>row2.appendChild(chip(d,r))));
+    row2.appendChild(mk('Keine',()=>{ state.hrSel={}; render(false); }));
+    c.appendChild(row1); c.appendChild(row2);
   }
 
   // ---------- STATS + TABLE ----------
@@ -300,24 +311,24 @@ window.VIERDAAGSE = {DATA, HEAT, COLORS, RAINMM, order, ANNOT};
   function drawHR(){
     const {DATA,COLORS,HR,order}=V;
     const cv=document.getElementById('hrCanvas'); const empty=document.getElementById('hrEmpty');
-    const sel=order.filter(d=>state.days[d]);
-    const activeRunners=RUNNERS.filter(r=>state.runners[r]);
-    if(!sel.length || !activeRunners.length){ if(hrChart){hrChart.destroy();hrChart=null;} cv.style.display='none';
-      empty.textContent = !sel.length ? 'Keinen Tag ausgewählt.' : 'Keinen Läufer ausgewählt.'; empty.style.display='block'; return; }
-    cv.style.display='block'; empty.style.display='none';
-    const {txt,grid}=themeChartColors();
     const datasets=[];
-    sel.forEach(d=>{ activeRunners.forEach(r=>{ const series=(HR[d]&&HR[d][r])?HR[d][r]:null; if(!series) return;
-      datasets.push({label:DATA[d].label+' · '+r, dayKey:d, runner:r,
+    order.forEach(d=>{ RUNNERS.forEach(r=>{ if(!state.hrSel[d+'|'+r]) return;
+      const series=(HR[d]&&HR[d][r])?HR[d][r]:null; if(!series) return;
+      const dayShort=DATA[d].label.split(' · ')[0];
+      datasets.push({label:dayShort+' · '+r, dayKey:d, runner:r,
         data:series.map(p=>({x:p[0],y:p[1]})), borderColor:COLORS[d],
         borderDash:(r==='Jens'?[6,4]:[]), borderWidth:2.2, pointRadius:0, fill:false, tension:.25}); }); });
+    if(!datasets.length){ if(hrChart){hrChart.destroy();hrChart=null;} cv.style.display='none';
+      empty.textContent='Kein Chart ausgewählt — wähle oben Tag & Läufer.'; empty.style.display='block'; return; }
+    cv.style.display='block'; empty.style.display='none';
+    const {txt,grid}=themeChartColors();
     if(hrChart) hrChart.destroy();
     hrChart=new Chart(cv,{type:'line',data:{datasets},
       options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},
         plugins:{legend:{display:true,position:'top',labels:{boxWidth:14,boxHeight:4,color:txt,font:{size:12,family:FAM}}},
           tooltip:{callbacks:{title:i=>'km '+i[0].parsed.x.toFixed(1),label:i=>i.dataset.label+': '+i.parsed.y+' bpm'}}},
         onHover:(ev,els)=>{ if(els.length){ const el=els[0],ds=hrChart.data.datasets[el.datasetIndex];
-          hoverToMap(ds.dayKey, ds.data[el.index].x, ds.borderColor); } },
+          if(state.days[ds.dayKey]) hoverToMap(ds.dayKey, ds.data[el.index].x, ds.borderColor); } },
         scales:{x:{type:'linear',title:{display:true,text:'Distanz (km)',color:txt,font:{family:FAM}},ticks:{maxTicksLimit:10,color:txt,font:{family:FAM}},grid:{color:grid}},
                 y:{title:{display:true,text:'Herzfrequenz (bpm)',color:txt,font:{family:FAM}},ticks:{color:txt,font:{family:FAM}},grid:{color:grid}}}}});
   }
@@ -332,7 +343,7 @@ window.VIERDAAGSE = {DATA, HEAT, COLORS, RAINMM, order, ANNOT};
   // ---------- RENDER ----------
   function render(refit){
     applyTheme();
-    renderDayTabs(); renderAnnTabs(); renderRunnerTabs();
+    renderDayTabs(); renderAnnTabs(); renderHrTabs();
     renderStatsTable();
     if(map){ drawRoutes(refit); }
     drawElev(); drawHR();
@@ -341,6 +352,7 @@ window.VIERDAAGSE = {DATA, HEAT, COLORS, RAINMM, order, ANNOT};
   function boot(){
     V=window.VIERDAAGSE;
     V.order.forEach(d=>state.days[d]=true);
+    V.order.forEach(d=>RUNNERS.forEach(r=>state.hrSel[d+'|'+r]=true));
     document.getElementById('selAll').addEventListener('click',()=>{ V.order.forEach(d=>state.days[d]=true); render(true); });
     document.getElementById('selNone').addEventListener('click',()=>{ V.order.forEach(d=>state.days[d]=false); render(false); });
     document.getElementById('themeBtn').addEventListener('click',()=>{ state.theme=state.theme==='dark'?'light':'dark';
